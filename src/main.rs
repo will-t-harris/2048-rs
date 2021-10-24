@@ -77,6 +77,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_startup_system(spawn_board.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, spawn_tiles.system())
+        .add_system(render_tile_points.system())
         .run()
 }
 
@@ -159,9 +160,28 @@ fn spawn_tiles(
                         transform: Transform::from_xyz(0.0, 0.0, 1.0),
                         ..Default::default()
                     })
+                    // Insert unit struct so we can filter for TileText in
+                    // future queries
                     .insert(TileText);
             })
             .insert(Points { value: 2 })
             .insert(position);
+    }
+}
+
+fn render_tile_points(
+    mut texts: Query<&mut Text, With<TileText>>,
+    // Points and Children are read-only in this function
+    tiles: Query<(&Points, &Children)>,
+) {
+    for (points, children) in tiles.iter() {
+        if let Some(entity) = children.first() {
+            let mut text = texts.get_mut(*entity).expect("expected Text to exist");
+            let mut text_section = text
+                .sections
+                .first_mut()
+                .expect("expected first section to be available as mutable");
+            text_section.value = points.value.to_string()
+        }
     }
 }
