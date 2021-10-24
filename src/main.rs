@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 use rand::prelude::*;
+use std::convert::TryFrom;
 
 const TILE_SIZE: f32 = 40.0;
 const TILE_SPACER: f32 = 10.0;
@@ -69,6 +70,28 @@ impl FromWorld for FontSpec {
     }
 }
 
+enum BoardShift {
+    Left,
+    Right,
+    Up,
+    Down,
+}
+
+// KeyCode is an immutable reference because it's read-only in this context
+impl TryFrom<&KeyCode> for BoardShift {
+    type Error = &'static str;
+
+    fn try_from(value: &KeyCode) -> Result<Self, Self::Error> {
+        match value {
+            KeyCode::Left => Ok(BoardShift::Left),
+            KeyCode::Right => Ok(BoardShift::Right),
+            KeyCode::Up => Ok(BoardShift::Up),
+            KeyCode::Down => Ok(BoardShift::Down),
+            _ => Err("not a valid board shift key"),
+        }
+    }
+}
+
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -78,6 +101,7 @@ fn main() {
         .add_startup_system(spawn_board.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, spawn_tiles.system())
         .add_system(render_tile_points.system())
+        .add_system(board_shift.system())
         .run()
 }
 
@@ -183,5 +207,27 @@ fn render_tile_points(
                 .expect("expected first section to be available as mutable");
             text_section.value = points.value.to_string()
         }
+    }
+}
+
+fn board_shift(keyboard_input: Res<Input<KeyCode>>) {
+    let shift_direction = keyboard_input
+        .get_just_pressed()
+        .find_map(|key_code| BoardShift::try_from(key_code).ok());
+
+    match shift_direction {
+        Some(BoardShift::Left) => {
+            dbg!("left");
+        }
+        Some(BoardShift::Right) => {
+            dbg!("right");
+        }
+        Some(BoardShift::Up) => {
+            dbg!("up");
+        }
+        Some(BoardShift::Down) => {
+            dbg!("down");
+        }
+        None => (),
     }
 }
