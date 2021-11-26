@@ -213,6 +213,7 @@ fn render_tile_points(
 }
 
 fn board_shift(
+    mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
     mut tiles: Query<(Entity, &mut Position, &mut Points)>,
 ) {
@@ -224,14 +225,52 @@ fn board_shift(
         Some(BoardShift::Left) => {
             dbg!("left");
 
-            let mut iterator = tiles
+            let mut it = tiles
                 .iter_mut()
                 // first check which row the tile is on (y-direction)
                 .sorted_by(|a, b| match Ord::cmp(&a.1.y, &b.1.y) {
                     // if necessary check which column the tile is on (x-direction)
                     Ordering::Equal => Ord::cmp(&a.1.x, &b.1.x),
                     ordering => ordering,
-                });
+                })
+                .peekable();
+
+            // track the current column
+            let mut column: u8 = 0;
+
+            while let Some(mut tile) = it.next() {
+                tile.1.x = column;
+                match it.peek() {
+                    None => {}
+                    Some(tile_next) => {
+                        if tile.1.y != tile_next.1.y {
+                            // the tiles are in different rows, so skip merging
+                            // and move on to the next column
+                            column = 0;
+                        } else if tile.2.value != tile_next.2.value {
+                            // the tiles have different values, so don't merge
+                            column += 1;
+                        } else {
+                            // merge tiles (i.e. double the value)
+                            let real_next_tile =
+                                it.next().expect("A peeked tile should always exist here.");
+                            tile.2.value = tile.2.value * 2;
+
+                            // remove the merged tile and all related assets
+                            // (recursively)
+                            commands.entity(real_next_tile.0).despawn_recursive();
+
+                            if let Some(future) = it.peek() {
+                                if tile.1.y != future.1.y {
+                                    column = 0;
+                                } else {
+                                    column += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         Some(BoardShift::Right) => {
             dbg!("right");
